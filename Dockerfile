@@ -1,4 +1,4 @@
-FROM harbor.tuxgrid.com/platform/base:latest
+FROM harbor.tuxgrid.com/platform/deploy-base:latest
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
