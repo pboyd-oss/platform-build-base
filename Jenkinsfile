@@ -159,6 +159,7 @@ print("provenance.json: {} resolved dependencies".format(len(deps)))
 PYEOF
 
                             COSIGN_PASSWORD="" cosign attest --key /tmp/cosign.key --yes \
+                                --tlog-upload=false \
                                 --type slsaprovenance1 \
                                 --predicate /tmp/provenance.json \
                                 "${IMAGE}@${IMAGE_DIGEST}"
@@ -167,6 +168,7 @@ PYEOF
                                 --output cyclonedx-json=/tmp/sbom.json
 
                             COSIGN_PASSWORD="" cosign attest --key /tmp/cosign.key --yes \
+                                --tlog-upload=false \
                                 --type cyclonedx \
                                 --predicate /tmp/sbom.json \
                                 "${IMAGE}@${IMAGE_DIGEST}"
