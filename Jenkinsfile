@@ -40,7 +40,6 @@ pipeline {
                                 --build-arg HTTPS_PROXY=http://127.0.0.1:8080 \
                                 --build-arg HTTP_PROXY=http://127.0.0.1:8080 \
                                 --destination=${IMAGE}:${GIT_COMMIT:0:7} \
-                                --destination=${IMAGE}:latest \
                                 --digest-file=${WORKSPACE}/image.digest \
                                 --snapshot-mode=redo \
                                 --compressed-caching=false \
@@ -179,5 +178,7 @@ PYEOF
                 }
             }
         }
+
+        stage('Promote') { steps { script { platformPromote() } } }
     }
 }
