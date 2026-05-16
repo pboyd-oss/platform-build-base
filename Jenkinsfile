@@ -82,6 +82,7 @@ pipeline {
                             printf '{"auths":{"harbor.tuxgrid.com":{"auth":"%s"}}}' "${AUTH}" \
                                 > ~/.docker/config.json
                             COSIGN_PASSWORD="" cosign sign --key /tmp/cosign.key --yes \
+                                --tlog-upload=false \
                                 "${IMAGE}@${IMAGE_DIGEST}"
                             rm -f /tmp/cosign.key ~/.docker/config.json
                         '''
