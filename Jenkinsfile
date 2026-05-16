@@ -164,7 +164,7 @@ PYEOF
                                 --predicate /tmp/provenance.json \
                                 "${IMAGE}@${IMAGE_DIGEST}"
 
-                            syft "${IMAGE}@${IMAGE_DIGEST}" \
+                            SYFT_CHECK_FOR_APP_UPDATE=false syft "${IMAGE}@${IMAGE_DIGEST}" \
                                 --output cyclonedx-json=/tmp/sbom.json
 
                             COSIGN_PASSWORD="" cosign attest --key /tmp/cosign.key --yes \
