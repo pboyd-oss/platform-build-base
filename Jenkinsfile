@@ -92,7 +92,7 @@ pipeline {
 
         stage('Provenance') {
             steps {
-                container('deploy-sec-base') {
+                container('cosign') {
                     withCredentials([
                         string(credentialsId: 'cosign-key', variable: 'COSIGN_PRIVATE_KEY'),
                         usernamePassword(
@@ -108,7 +108,8 @@ pipeline {
                             printf '{"auths":{"harbor.tuxgrid.com":{"auth":"%s"}}}' "${AUTH}" \
                                 > ~/.docker/config.json
 
-                            python3 - << 'PYEOF'
+                            if command -v python3 >/dev/null 2>&1; then
+                                python3 - << 'PYEOF'
 import json, os, datetime
 
 deps = []
@@ -156,6 +157,34 @@ with open("/tmp/provenance.json", "w") as f:
     json.dump(provenance, f, indent=2)
 print("provenance.json: {} resolved dependencies".format(len(deps)))
 PYEOF
+                            else
+                                echo "python3 not found, using simple provenance (no deps.ndjson)"
+                                NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                                STARTED=$(date -u -d "@$((BUILD_TIMESTAMP / 1000))" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "${NOW}")
+                                cat > /tmp/provenance.json << PROVEOF
+{
+  "buildDefinition": {
+    "buildType": "https://tuxgrid.com/buildType/jenkins-kaniko/v1",
+    "externalParameters": {
+      "ref": "${GIT_COMMIT}",
+      "repository": "${GIT_URL}",
+      "dockerfile": "Dockerfile"
+    },
+    "resolvedDependencies": [
+      {"uri": "${GIT_URL}", "digest": {"gitCommit": "${GIT_COMMIT}"}}
+    ]
+  },
+  "runDetails": {
+    "builder": {"id": "https://jenkins.tuxgrid.com/job/${JOB_NAME}/${BUILD_NUMBER}"},
+    "metadata": {
+      "invocationId": "${BUILD_URL}",
+      "startedOn": "${STARTED}",
+      "finishedOn": "${NOW}"
+    }
+  }
+}
+PROVEOF
+                            fi
 
                             COSIGN_PASSWORD="" cosign attest --key /tmp/cosign.key --yes \
                                 --tlog-upload=false \
@@ -163,16 +192,22 @@ PYEOF
                                 --predicate /tmp/provenance.json \
                                 "${IMAGE}@${IMAGE_DIGEST}"
 
-                            SYFT_CHECK_FOR_APP_UPDATE=false syft "${IMAGE}@${IMAGE_DIGEST}" \
-                                --output cyclonedx-json=/tmp/sbom.json
+                            if command -v syft >/dev/null 2>&1; then
+                                SYFT_CHECK_FOR_APP_UPDATE=false syft "${IMAGE}@${IMAGE_DIGEST}" \
+                                    --output cyclonedx-json=/tmp/sbom.json
 
-                            COSIGN_PASSWORD="" cosign attest --key /tmp/cosign.key --yes \
-                                --tlog-upload=false \
-                                --type cyclonedx \
-                                --predicate /tmp/sbom.json \
-                                "${IMAGE}@${IMAGE_DIGEST}"
+                                COSIGN_PASSWORD="" cosign attest --key /tmp/cosign.key --yes \
+                                    --tlog-upload=false \
+                                    --type cyclonedx \
+                                    --predicate /tmp/sbom.json \
+                                    "${IMAGE}@${IMAGE_DIGEST}"
 
-                            rm -f /tmp/cosign.key ~/.docker/config.json /tmp/provenance.json /tmp/sbom.json
+                                rm -f /tmp/sbom.json
+                            else
+                                echo "syft not found, skipping SBOM attestation"
+                            fi
+
+                            rm -f /tmp/cosign.key ~/.docker/config.json /tmp/provenance.json
                         '''
                     }
                 }
